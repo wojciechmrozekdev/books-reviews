@@ -1,6 +1,11 @@
-def main():
-    print("Hello from books-reviews!")
+from fastapi import FastAPI
+from app.routers.books import router as books_router
+from app.routers.reviews import router as reviews_router
+
+app = FastAPI()
+
+app.include_router(books_router)
+app.include_router(reviews_router)
 
 
-if __name__ == "__main__":
-    main()
+    
