@@ -1,18 +1,43 @@
 from fastapi import APIRouter, HTTPException, Depends
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.database.dependencies import get_db
 
 from app.models.book import Book
 from app.models.review import Review
 
-from app.schemas.book import BookCreate, BookUpdate, BookResponse
+from app.schemas.book import BookCreate, BookUpdate, BookResponse, BookResponseAvgRating
 from app.schemas.reviews import ReviewCreate, ReviewResponse
 
 router = APIRouter(prefix="/books", tags=["Books"])
 
+
+@router.get("/{id}/avg-rating", response_model=BookResponseAvgRating)
+async def get_book_avg_rating(id: int, db: Session = Depends(get_db)):
+    book = db.get(Book, id)
+
+    if book is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Book not found"
+        )
+    
+    stmt = select(func.avg(Review.rating)).where(Review.book_id == id)
+    avg_rating = db.execute(stmt).scalar()
+    
+    book_avg_rating = BookResponseAvgRating(
+        id = book.id,
+        title = book.title,
+        author = book.author,
+        average_rating = avg_rating
+    )
+    
+    return book_avg_rating
+    
+    
+    
 
 @router.post("/{book_id}/review", response_model=ReviewResponse)
 async def create_review(book_id: int, review: ReviewCreate, db: Session = Depends(get_db)):
@@ -39,10 +64,17 @@ async def create_review(book_id: int, review: ReviewCreate, db: Session = Depend
 @router.get("/{book_id}/reviews", response_model=list[ReviewResponse])
 async def get_reviews(book_id: int, db: Session = Depends(get_db)):
     
-    stmt = select(Review).join(Book).where(Book.id == book_id)
+    stmt = select(Review).where(Review.book_id == book_id)
 
     result = db.execute(stmt)
-    return result.scalars().all()
+    reviews = result.scalars().all()
+    
+    # for review in reviews:
+    #     print(review.rating)
+    #     print(review.content)
+    #     print("----------")
+    
+    return reviews
 
 @router.post("/", response_model=BookResponse)
 async def create_book(book: BookCreate, db: Session = Depends(get_db)):
@@ -58,10 +90,12 @@ async def create_book(book: BookCreate, db: Session = Depends(get_db)):
     return new_book
 
 @router.get("/", response_model=list[BookResponse])
-async def get_books(db: Session = Depends(get_db)):
+async def get_books(skip: int = 0, limit: int | None = None, db: Session = Depends(get_db)):
     stmt = select(Book)
     result = db.execute(stmt)
-    return result.scalars().all()
+    book_list = result.scalars().all()
+    
+    return book_list[skip:skip+limit]
 
 
 @router.get("/{id}", response_model=BookResponse)

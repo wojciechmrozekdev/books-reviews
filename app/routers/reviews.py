@@ -7,7 +7,7 @@ from app.database.dependencies import get_db
 
 from app.models.review import Review
 
-from app.schemas.reviews import ReviewResponse, ReviewUpdate
+from app.schemas.reviews import ReviewUpdate
 
 router = APIRouter(prefix="/review", tags=["Rewiews"])
 

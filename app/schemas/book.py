@@ -16,3 +16,13 @@ class BookResponse(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+class BookResponseAvgRating(BaseModel):
+    id: int
+    title: str
+    author: str
+    average_rating: float
+    
+    model_config = {
+        "from_attributes": True
+    }

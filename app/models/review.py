@@ -16,6 +16,6 @@ class Review(Base):
     )
     
     book: Mapped["Book"] = relationship(
-    back_populates="reviews"
-)
+        back_populates="reviews"
+    )
 
