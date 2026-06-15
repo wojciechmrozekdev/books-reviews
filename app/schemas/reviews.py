@@ -12,3 +12,7 @@ class ReviewResponse(BaseModel):
     id: int
     rating: int
     content: str
+    
+    model_config = {
+        "from_attributes": True
+    }

@@ -12,3 +12,7 @@ class BookResponse(BaseModel):
     id: int
     title: str
     author: str
+    
+    model_config = {
+        "from_attributes": True
+    }

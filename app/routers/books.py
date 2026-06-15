@@ -8,14 +8,22 @@ from app.database.dependencies import get_db
 from app.models.book import Book
 from app.models.review import Review
 
-from app.schemas.book import BookCreate, BookUpdate
-from app.schemas.reviews import ReviewCreate
+from app.schemas.book import BookCreate, BookUpdate, BookResponse
+from app.schemas.reviews import ReviewCreate, ReviewResponse
 
 router = APIRouter(prefix="/books", tags=["Books"])
 
 
-@router.post("/{book_id}/review")
+@router.post("/{book_id}/review", response_model=ReviewResponse)
 async def create_review(book_id: int, review: ReviewCreate, db: Session = Depends(get_db)):
+    book = db.get(Book, book_id)
+
+    if book is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Book not found"
+        )
+    
     new_review = Review(
         rating = review.rating,
         content = review.content,
@@ -28,19 +36,15 @@ async def create_review(book_id: int, review: ReviewCreate, db: Session = Depend
     
     return new_review
 
-@router.get("/{book_id}/review")
+@router.get("/{book_id}/reviews", response_model=list[ReviewResponse])
 async def get_reviews(book_id: int, db: Session = Depends(get_db)):
     
     stmt = select(Review).join(Book).where(Book.id == book_id)
-    
-    
-    for review in db.scalars(stmt):
-        print(vars(review))
 
     result = db.execute(stmt)
     return result.scalars().all()
 
-@router.post("/")
+@router.post("/", response_model=BookResponse)
 async def create_book(book: BookCreate, db: Session = Depends(get_db)):
     new_book = Book(
         title = book.title,
@@ -53,23 +57,23 @@ async def create_book(book: BookCreate, db: Session = Depends(get_db)):
     
     return new_book
 
-@router.get("/")
+@router.get("/", response_model=list[BookResponse])
 async def get_books(db: Session = Depends(get_db)):
     stmt = select(Book)
     result = db.execute(stmt)
     return result.scalars().all()
 
 
-@router.get("/{id}")
+@router.get("/{id}", response_model=BookResponse)
 async def get_book(id: int, db: Session = Depends(get_db)):
-    book = db.get(Book, id) # .get() method works only if one want to filter by primary keys, if one wants to do same more complex filtering, then you need to use .select() method
+    book = db.get(Book, id) 
     
     if book is None:
         raise HTTPException(status_code=404, detail="Book not found")
     
     return book
 
-@router.delete("/{id}")
+@router.delete("/{id}", response_model=BookResponse)
 async def delete_book(id: int, db: Session = Depends(get_db)):
     book = db.get(Book, id)
     
@@ -81,7 +85,7 @@ async def delete_book(id: int, db: Session = Depends(get_db)):
     
     return book
 
-@router.put("/{id}")
+@router.put("/{id}", response_model=BookResponse)
 async def edit_book(id: int, edited_book: BookUpdate, db: Session = Depends(get_db)):
     book = db.get(Book, id)
     
