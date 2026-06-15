@@ -15,7 +15,7 @@ router = APIRouter(prefix="/books", tags=["Books"])
 
 
 @router.post("/{book_id}/review")
-def create_review(book_id: int, review: ReviewCreate, db: Session = Depends(get_db)):
+async def create_review(book_id: int, review: ReviewCreate, db: Session = Depends(get_db)):
     new_review = Review(
         rating = review.rating,
         content = review.content,
@@ -29,7 +29,7 @@ def create_review(book_id: int, review: ReviewCreate, db: Session = Depends(get_
     return new_review
 
 @router.get("/{book_id}/review")
-def get_reviews(book_id: int, db: Session = Depends(get_db)):
+async def get_reviews(book_id: int, db: Session = Depends(get_db)):
     
     stmt = select(Review).join(Book).where(Book.id == book_id)
     
