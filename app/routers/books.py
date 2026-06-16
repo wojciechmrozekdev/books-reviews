@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
@@ -10,6 +10,8 @@ from app.models.review import Review
 
 from app.schemas.book import BookCreate, BookUpdate, BookResponse, BookResponseAvgRating
 from app.schemas.reviews import ReviewCreate, ReviewResponse
+
+from typing import Annotated
 
 router = APIRouter(prefix="/books", tags=["Books"])
 
@@ -36,8 +38,15 @@ async def get_book_avg_rating(id: int, db: Session = Depends(get_db)):
     
     return book_avg_rating
     
-    
-    
+@router.get("/title", response_model=list[BookResponse])
+async def get_books_by_title(title: str, db: Session = Depends(get_db)):
+    stmt = select(Book).where(Book.title.ilike(f"%{title}%"))
+    return db.execute(stmt).scalars().all()
+
+@router.get("/author", response_model=list[BookResponse])
+async def get_books_by_author(author: str, db: Session = Depends(get_db)):
+    stmt = select(Book).where(Book.author.ilike(f"%{author}%"))
+    return db.execute(stmt).scalars().all()
 
 @router.post("/{book_id}/review", response_model=ReviewResponse)
 async def create_review(book_id: int, review: ReviewCreate, db: Session = Depends(get_db)):
@@ -90,12 +99,19 @@ async def create_book(book: BookCreate, db: Session = Depends(get_db)):
     return new_book
 
 @router.get("/", response_model=list[BookResponse])
-async def get_books(skip: int = 0, limit: int | None = None, db: Session = Depends(get_db)):
-    stmt = select(Book)
-    result = db.execute(stmt)
-    book_list = result.scalars().all()
+async def get_books(
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 10,
+    db: Session = Depends(get_db)
+):
     
-    return book_list[skip:skip+limit]
+    stmt = (
+        select(Book)
+        .offset(skip)
+        .limit(limit)
+    )
+    
+    return db.execute(stmt).scalars().all()
 
 
 @router.get("/{id}", response_model=BookResponse)
