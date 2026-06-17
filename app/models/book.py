@@ -12,6 +12,7 @@ class Book(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str]
     author: Mapped[str]
+    year: Mapped[int]
 
     reviews: Mapped[list["Review"]] = relationship(
         back_populates="book",

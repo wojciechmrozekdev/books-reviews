@@ -43,6 +43,7 @@ async def get_book_avg_rating(id: int, db: Session = Depends(get_db)):
         id = book.id,
         title = book.title,
         author = book.author,
+        year = book.year,
         average_rating = avg_rating
     )
     
@@ -84,7 +85,8 @@ async def get_reviews(book_id: int, db: Session = Depends(get_db)):
 async def create_book(book: BookCreate, db: Session = Depends(get_db)):
     new_book = Book(
         title = book.title,
-        author = book.author
+        author = book.author,
+        year = book.year
     )
     
     db.add(new_book)
@@ -158,6 +160,7 @@ async def edit_book(id: int, edited_book: BookUpdate, db: Session = Depends(get_
     
     book.title = edited_book.title
     book.author = edited_book.author
+    book.year = edited_book.year
     
     db.commit()
     db.refresh(book)
