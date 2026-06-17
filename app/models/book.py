@@ -1,6 +1,10 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.database import Base
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.review import Review
 
 class Book(Base):
     __tablename__ = "books"
@@ -10,6 +14,7 @@ class Book(Base):
     author: Mapped[str]
 
     reviews: Mapped[list["Review"]] = relationship(
-        back_populates="book"
+        back_populates="book",
+        cascade="all, delete-orphan"
     )
     

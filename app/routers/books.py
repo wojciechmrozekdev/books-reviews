@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
+from typing import Annotated
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
@@ -8,13 +9,22 @@ from app.database.dependencies import get_db
 from app.models.book import Book
 from app.models.review import Review
 
-from app.schemas.book import BookCreate, BookUpdate, BookResponse, BookResponseAvgRating
+from app.schemas.book import BookCreate, BookUpdate, BookResponse, BookResponseAvgRating, BookWithReviewsResponse
 from app.schemas.reviews import ReviewCreate, ReviewResponse
-
-from typing import Annotated
 
 router = APIRouter(prefix="/books", tags=["Books"])
 
+@router.get("/{id}/details", response_model=BookWithReviewsResponse)
+async def get_book_with_reviews(id: int, db: Session = Depends(get_db)):
+    book = db.get(Book, id)
+    
+    if book is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Book not found"
+        )
+        
+    return book
 
 @router.get("/{id}/avg-rating", response_model=BookResponseAvgRating)
 async def get_book_avg_rating(id: int, db: Session = Depends(get_db)):
@@ -37,16 +47,6 @@ async def get_book_avg_rating(id: int, db: Session = Depends(get_db)):
     )
     
     return book_avg_rating
-    
-@router.get("/title", response_model=list[BookResponse])
-async def get_books_by_title(title: str, db: Session = Depends(get_db)):
-    stmt = select(Book).where(Book.title.ilike(f"%{title}%"))
-    return db.execute(stmt).scalars().all()
-
-@router.get("/author", response_model=list[BookResponse])
-async def get_books_by_author(author: str, db: Session = Depends(get_db)):
-    stmt = select(Book).where(Book.author.ilike(f"%{author}%"))
-    return db.execute(stmt).scalars().all()
 
 @router.post("/{book_id}/review", response_model=ReviewResponse)
 async def create_review(book_id: int, review: ReviewCreate, db: Session = Depends(get_db)):
@@ -78,11 +78,6 @@ async def get_reviews(book_id: int, db: Session = Depends(get_db)):
     result = db.execute(stmt)
     reviews = result.scalars().all()
     
-    # for review in reviews:
-    #     print(review.rating)
-    #     print(review.content)
-    #     print("----------")
-    
     return reviews
 
 @router.post("/", response_model=BookResponse)
@@ -100,8 +95,11 @@ async def create_book(book: BookCreate, db: Session = Depends(get_db)):
 
 @router.get("/", response_model=list[BookResponse])
 async def get_books(
+    title: Annotated[str | None, Query(max_length=50)] = None,
+    author: Annotated[str | None, Query(max_length=50)] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
+    sort: Annotated[str | None, Query()] = None,
     db: Session = Depends(get_db)
 ):
     
@@ -110,6 +108,22 @@ async def get_books(
         .offset(skip)
         .limit(limit)
     )
+    
+    if author:
+        stmt = stmt.where(Book.author.ilike(f"%{author}%"))
+    if title:
+        stmt = stmt.where(Book.title.ilike(f"%{title}%"))
+
+    if sort == "title":
+        stmt = stmt.order_by(Book.title)
+
+    elif sort == "author":
+        stmt = stmt.order_by(Book.author)
+
+    elif sort == "id":
+        stmt = stmt.order_by(Book.id)
+        
+        
     
     return db.execute(stmt).scalars().all()
 

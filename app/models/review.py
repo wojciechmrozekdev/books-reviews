@@ -3,6 +3,11 @@ from app.database.database import Base
 
 from sqlalchemy import ForeignKey
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.book import Book
+
 class Review(Base):
     __tablename__ = "reviews"
 
