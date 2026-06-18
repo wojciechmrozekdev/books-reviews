@@ -12,6 +12,8 @@ from app.models.review import Review
 from app.schemas.book import BookCreate, BookUpdate, BookResponse, BookResponseAvgRating, BookWithReviewsResponse
 from app.schemas.reviews import ReviewCreate, ReviewResponse
 
+from app.services import book_service
+
 router = APIRouter(prefix="/books", tags=["Books"])
 
 @router.get("/{id}/details", response_model=BookWithReviewsResponse)
@@ -81,19 +83,9 @@ async def get_reviews(book_id: int, db: Session = Depends(get_db)):
     
     return reviews
 
-@router.post("/", response_model=BookResponse)
+@router.post("/")
 async def create_book(book: BookCreate, db: Session = Depends(get_db)):
-    new_book = Book(
-        title = book.title,
-        author = book.author,
-        year = book.year
-    )
-    
-    db.add(new_book)
-    db.commit()
-    db.refresh(new_book)
-    
-    return new_book
+   return book_service.create_book(db, book)
 
 @router.get("/", response_model=list[BookResponse])
 async def get_books(
@@ -105,29 +97,14 @@ async def get_books(
     db: Session = Depends(get_db)
 ):
     
-    stmt = (
-        select(Book)
-        .offset(skip)
-        .limit(limit)
-    )
-    
-    if author:
-        stmt = stmt.where(Book.author.ilike(f"%{author}%"))
-    if title:
-        stmt = stmt.where(Book.title.ilike(f"%{title}%"))
-
-    if sort == "title":
-        stmt = stmt.order_by(Book.title)
-
-    elif sort == "author":
-        stmt = stmt.order_by(Book.author)
-
-    elif sort == "id":
-        stmt = stmt.order_by(Book.id)
-        
-        
-    
-    return db.execute(stmt).scalars().all()
+   return book_service.get_books(
+       db=db,
+       title=title,
+       author=author,
+       skip=skip,
+       limit=limit,
+       sort=sort
+   )
 
 
 @router.get("/{id}", response_model=BookResponse)
@@ -141,15 +118,12 @@ async def get_book(id: int, db: Session = Depends(get_db)):
 
 @router.delete("/{id}", response_model=BookResponse)
 async def delete_book(id: int, db: Session = Depends(get_db)):
-    book = db.get(Book, id)
     
-    if book is None:
+    try:
+        return book_service.delete_book(db, id)
+    except book_service.BookNotFoundError:
         raise HTTPException(status_code=404, detail="Book not found")
-    
-    db.delete(book)
-    db.commit()
-    
-    return book
+
 
 @router.put("/{id}", response_model=BookResponse)
 async def edit_book(id: int, edited_book: BookUpdate, db: Session = Depends(get_db)):
