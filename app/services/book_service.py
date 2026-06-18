@@ -1,5 +1,5 @@
 from app.models.book import Book
-from app.schemas.book import BookCreate
+from app.schemas.book import BookCreate, BookUpdate
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
@@ -7,13 +7,40 @@ from sqlalchemy import select, func
 class BookNotFoundError(Exception):
     pass
 
+class NoReviewsError(Exception):
+    pass
+
+
+def get_book_or_raise(db: Session, id: int) -> Book:
+    book = db.get(Book, id)
+    if not book:
+        raise BookNotFoundError()
+    return book
+
+
+def create_book(
+    db: Session,
+    book_data: BookCreate
+):
+    book = Book(
+        title = book_data.title,
+        author = book_data.author,
+        year = book_data.year
+    )
+    
+    db.add(book)
+    db.commit()
+    db.refresh(book)
+    
+    return book
+
 def get_books(
     db: Session,
     title: str | None,
     author: str | None,
     skip: int,
     limit: int,
-    sort: str
+    sort: str | None
 ):
     stmt = select(Book)
     
@@ -41,39 +68,37 @@ def get_books(
     
     return db.execute(stmt).scalars().all()
     
-
-def create_book(
+def get_book(
     db: Session,
-    book_data: BookCreate
+    id: int
 ):
-    book = Book(
-        title = book_data.title,
-        author = book_data.author,
-        year = book_data.year
-    )
-    
-    db.add(book)
-    db.commit()
-    db.refresh(book)
-    
-    return book
+    book = get_book_or_raise(db, id)
 
+    return book   
+    
 def delete_book(
     db: Session,
     book_id: int
 ):
-    book = db.get(Book, book_id)
-    
-    if book is None:
-        raise BookNotFoundError()
+    book = get_book_or_raise(db, book_id)
     
     db.delete(book)
     db.commit()
     
     return book
 
-def get_book(
-    
+def edit_book(
+    db: Session,
+    id: int, 
+    edited_book: BookUpdate
 ):
-    pass
+    book = get_book_or_raise(db, id)
     
+    book.title = edited_book.title
+    book.author = edited_book.author
+    book.year = edited_book.year
+    
+    db.commit()
+    db.refresh(book)
+    
+    return book

@@ -6,82 +6,72 @@ from sqlalchemy import select, func
 
 from app.database.dependencies import get_db
 
-from app.models.book import Book
-from app.models.review import Review
-
-from app.schemas.book import BookCreate, BookUpdate, BookResponse, BookResponseAvgRating, BookWithReviewsResponse
+from app.schemas.book import BookCreate, BookUpdate, BookResponse, BookResponseAvgRating, BookWithReviewsResponse, TopBookResponse
 from app.schemas.reviews import ReviewCreate, ReviewResponse
 
-from app.services import book_service
+from app.services import book_service, review_service, stats_service
 
 router = APIRouter(prefix="/books", tags=["Books"])
 
+
+@router.get("/top-rated", response_model=list[TopBookResponse])
+async def get_top_books(
+    limit: Annotated[int, Query(ge=1, le=100)] = 5,
+    db: Session = Depends(get_db)
+):
+    return stats_service.get_top_books_by_rating(db, limit)
+    
 @router.get("/{id}/details", response_model=BookWithReviewsResponse)
 async def get_book_with_reviews(id: int, db: Session = Depends(get_db)):
-    book = db.get(Book, id)
+    try:
+        return stats_service.get_book_with_reviews(db, id)
     
-    if book is None:
+    except book_service.BookNotFoundError:
         raise HTTPException(
             status_code=404,
             detail="Book not found"
         )
         
-    return book
-
 @router.get("/{id}/avg-rating", response_model=BookResponseAvgRating)
 async def get_book_avg_rating(id: int, db: Session = Depends(get_db)):
-    book = db.get(Book, id)
-
-    if book is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Book not found"
-        )
+    try:
+        return stats_service.get_book_avg_rating(db, id)
     
-    stmt = select(func.avg(Review.rating)).where(Review.book_id == id)
-    avg_rating = db.execute(stmt).scalar()
+    except book_service.BookNotFoundError:
+        raise HTTPException(status_code=404, detail="Book not found")
     
-    book_avg_rating = BookResponseAvgRating(
-        id = book.id,
-        title = book.title,
-        author = book.author,
-        year = book.year,
-        average_rating = avg_rating
-    )
-    
-    return book_avg_rating
+    except review_service.NoReviewsError:
+        raise HTTPException(status_code=404, detail="No reviews found")
 
 @router.post("/{book_id}/review", response_model=ReviewResponse)
 async def create_review(book_id: int, review: ReviewCreate, db: Session = Depends(get_db)):
-    book = db.get(Book, book_id)
-
-    if book is None:
+    
+    try: 
+        return review_service.create_review(db, book_id, review)
+    
+    except book_service.BookNotFoundError:
         raise HTTPException(
             status_code=404,
             detail="Book not found"
         )
-    
-    new_review = Review(
-        rating = review.rating,
-        content = review.content,
-        book_id = book_id
-    )
-    
-    db.add(new_review)
-    db.commit()
-    db.refresh(new_review)
-    
-    return new_review
 
 @router.get("/{book_id}/reviews", response_model=list[ReviewResponse])
 async def get_reviews(book_id: int, db: Session = Depends(get_db)):
     
-    stmt = select(Review).where(Review.book_id == book_id)
-
-    result = db.execute(stmt)
-    reviews = result.scalars().all()
+    try:
+        return review_service.get_reviews(db, book_id)
     
-    return reviews
+    except book_service.BookNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Book not found"
+        )
+
+    except review_service.ReviewNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Reviews not found"
+        )
 
 @router.post("/")
 async def create_book(book: BookCreate, db: Session = Depends(get_db)):
@@ -106,12 +96,13 @@ async def get_books(
        sort=sort
    )
 
-
 @router.get("/{id}", response_model=BookResponse)
 async def get_book(id: int, db: Session = Depends(get_db)):
-    book = db.get(Book, id) 
     
-    if book is None:
+    try:
+        book = book_service.get_book(db, id)
+        
+    except book_service.BookNotFoundError:
         raise HTTPException(status_code=404, detail="Book not found")
     
     return book
@@ -121,24 +112,17 @@ async def delete_book(id: int, db: Session = Depends(get_db)):
     
     try:
         return book_service.delete_book(db, id)
+    
     except book_service.BookNotFoundError:
         raise HTTPException(status_code=404, detail="Book not found")
 
-
 @router.put("/{id}", response_model=BookResponse)
 async def edit_book(id: int, edited_book: BookUpdate, db: Session = Depends(get_db)):
-    book = db.get(Book, id)
     
-    if book is None:
+    try:
+        return book_service.edit_book(db, id, edited_book)
+    
+    except book_service.BookNotFoundError:
         raise HTTPException(status_code=404, detail="Book not found")
-    
-    book.title = edited_book.title
-    book.author = edited_book.author
-    book.year = edited_book.year
-    
-    db.commit()
-    db.refresh(book)
-    
-    return book
     
     

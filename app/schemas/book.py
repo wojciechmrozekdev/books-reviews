@@ -21,6 +21,17 @@ class BookResponse(BaseModel):
         "from_attributes": True
     }
     
+class TopBookResponse(BaseModel):
+    id: int
+    title: str
+    author: str
+    year: int
+    average_rating: float
+    
+    model_config = {
+        "from_attributes": True
+    }
+    
 class BookWithReviewsResponse(BaseModel):
     id: int
     title: str
