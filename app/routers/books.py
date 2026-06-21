@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Annotated
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
 
 from app.database.dependencies import get_db
 
